@@ -2,7 +2,7 @@ import json
 from argparse import ArgumentParser
 from sys import argv
 
-from .api import PubMedAPI, METHOD_LITERAL
+from .api import PubMedAPI, METHODS
 
 
 def argparser(args=argv[1:]) -> dict:
@@ -23,9 +23,9 @@ def argparser(args=argv[1:]) -> dict:
 
     parser.add_argument("-m", "--method",
                         action="store",
+                        choices=METHODS,
                         default="api",
-                        help="Method to obtain data with (default: 'api'). "
-                             f"Choices: {METHOD_LITERAL.__args__}.")
+                        help="Method to obtain data with (default: 'api').")
 
     parser.add_argument("-w", "--max-workers",
                         action="store",
@@ -55,15 +55,18 @@ def argparser(args=argv[1:]) -> dict:
                         dest="verbose",
                         help=f"Does not print results (limited to a single item only by default).")
 
+    parser.add_argument("--log-level",
+                        action="store",
+                        choices=["critical", "error", "warning", "info", "debug"],
+                        help=f"Logging level (optional).")
+
     return parser.parse_args(args)
 
 
 def main():
-    """
-    Starts command line interface.
-    """
+    """ Starts command line interface. """
     args = dict(vars(argparser()))
-    pm = PubMedAPI(email=args.pop("email"), tool=args.pop("tool"))
+    pm = PubMedAPI(email=args.pop("email"), tool=args.pop("tool"), log_level=args.pop("log_level"))
     output_file = args.pop("output_file")
     verbose = args.pop("verbose")
 
@@ -71,9 +74,5 @@ def main():
     with open(output_file, "w") as f:
         json.dump(data, f)
 
-    if verbose:
-        if data:
-            print(json.dumps(data[0] if type(data) == list else data, indent=2))
-        else:
-            print("No data returned.")
-
+    if verbose and len(data) == 1:
+        print(json.dumps(data, indent=2))

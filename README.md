@@ -11,20 +11,20 @@ Simple interface to query or scrape IDs from [PubMed](https://pubmed.ncbi.nlm.ni
 A CLI is included that allows querying the PubMed via their API or by web scraping.
 
 ```bash
-usage: pubmed-id [-h] [-o OUTPUT_FILE] [-m METHOD] [-w WORKERS] [-c SIZE]
-                 [--email ADDRESS] [--tool NAME] [--quiet]
+usage: pubmed-id [-h] [-o OUTPUT_FILE] [-m {api,citedin,refs,scrape}]
+                 [-w WORKERS] [-c SIZE] [--email ADDRESS] [--tool NAME]
+                 [--quiet] [--log-level {critical,error,warning,info,debug}]
                  ID [ID ...]
 
 positional arguments:
   ID                    IDs to query (separated by whitespaces).
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
   -o OUTPUT_FILE, --output-file OUTPUT_FILE
                         File to write results to (default: 'PubMedAPI.json').
-  -m METHOD, --method METHOD
-                        Method to obtain data with (default: 'api'). Choices:
-                        ('api', 'citedin', 'refs', 'scrape').
+  -m {api,citedin,refs,scrape}, --method {api,citedin,refs,scrape}
+                        Method to obtain data with (default: 'api').
   -w WORKERS, --max-workers WORKERS
                         Number of processes to use (optional).
   -c SIZE, --chunksize SIZE
@@ -33,6 +33,8 @@ options:
   --tool NAME           Tool name (optional, used to query API only).
   --quiet               Does not print results (limited to a single item only
                         by default).
+  --log-level {critical,error,warning,info,debug}
+                        Logging level (optional).
 ```
 
 ### Importing as a class
@@ -41,7 +43,6 @@ Quick example on how to obtain data from the API:
 
 ```python
 >>> from pubmed_id import PubMedAPI
->>>
 >>> api = PubMedAPI(email="myemail@domain.com", tool="MyToolName")
 ```
 

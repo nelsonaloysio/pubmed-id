@@ -2,7 +2,7 @@ import logging as log
 from functools import partial, wraps
 from requests import Response, Session
 from time import sleep
-from typing import Callable, Literal, Optional, Union
+from typing import Callable, Optional, Union
 
 from bs4 import BeautifulSoup
 from tqdm.contrib.concurrent import process_map
@@ -10,16 +10,15 @@ from tqdm.contrib.concurrent import process_map
 URL = "ncbi.nlm.nih.gov"
 API_ENDPOINT = "pmc/utils/idconv/v1.0"
 API_CITATIONS = "entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed"
-LOG_LITERAL = Literal["critical", "error", "warning", "info", "debug"]
-METHOD_LITERAL = Literal["api", "citedin", "refs", "scrape"]
+METHODS = ["api", "citedin", "refs", "scrape"]
 
 
-@staticmethod
 def souper(func: Callable) -> Callable:
     """
     Decorator function to scrape data with BeautifulSoup.
     """
     @wraps(func)
+    @staticmethod
     def func_wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
@@ -40,7 +39,7 @@ class PubMedAPI():
         email: str = "",
         tool: str = "PubMedAPI",
         log_format: Optional[str] = None,
-        log_level: Optional[LOG_LITERAL] = None
+        log_level: Optional[str] = None,
     ) -> None:
         self.email = email
         self.tool = tool
@@ -54,7 +53,7 @@ class PubMedAPI():
     def __call__(
         self,
         ids: Union[str, int, list],
-        method: METHOD_LITERAL = "api",
+        method: str = "api",
         max_workers: Optional[int] = None,
         chunksize: Optional[int] = None,
         **kwargs
@@ -69,16 +68,16 @@ class PubMedAPI():
         :param kwargs: Additional keyword arguments for the method.
         """
         assert ids is not None and type(ids) in (str, int, list),\
-                "Argument `ids` must be a non-empty string, integer, or list."
+            "Argument `ids` must be a non-empty string, integer, or list."
 
-        assert method in METHOD_LITERAL.__args__,\
-                f"Argument `method` must be one in {METHOD_LITERAL.__args__}."
+        assert method in METHODS,\
+            f"Argument `method` must be one in {METHODS}."
 
         assert max_workers is None or (type(max_workers) == int and max_workers > 0),\
-                "Argument `max_workers` must be a positive integer if defined."
+            "Argument `max_workers` must be a positive integer if defined."
 
         assert chunksize is None or (type(chunksize) == int and chunksize > 0),\
-                "Argument `chunksize` must be a positive integer if defined."
+            "Argument `chunksize` must be a positive integer if defined."
 
         if type(ids) in (str, int):
             return getattr(self, method)(ids, **kwargs)
@@ -88,14 +87,17 @@ class PubMedAPI():
         if not chunksize:
             chunksize = max(len(ids) // (max_workers + 2), 1) if max_workers > 1 else 1
 
-        data = list(process_map(partial(getattr(self, method), **kwargs),
-                                ids,
-                                ascii=True,
-                                max_workers=max_workers,
-                                chunksize=chunksize,
-                                total=len(ids),
-                                desc=f"Requesting data (workers: {max_workers}, "
-                                     f"chunksize: {chunksize})"))
+        if len(ids) > chunksize:
+            data = list(process_map(partial(getattr(self, method), **kwargs),
+                                    ids,
+                                    ascii=True,
+                                    max_workers=max_workers,
+                                    chunksize=chunksize,
+                                    total=len(ids),
+                                    desc=f"Requesting data (workers: {max_workers}, "
+                                        f"chunksize: {chunksize})"))
+        else:
+            data = [getattr(self, method)(id, **kwargs) for id in ids]
 
         if method == "api":
             return data
@@ -105,8 +107,8 @@ class PubMedAPI():
     def api(
         self,
         ids: Union[str, int, list],
-        idtype: Optional[Literal["pmid", "pmcid"]] = None,
-        versions: Literal["no", "yes"] = "no",
+        idtype: Optional[str] = None,
+        versions: str = "no",
         batchsize: int = 100
     ) -> Union[dict, list]:
         """
@@ -124,7 +126,9 @@ class PubMedAPI():
         :param batchsize: Number of IDs to process at a time.
         """
         assert idtype in (None, "pmid", "pmcid"),\
-               "Argument `idtype` must be either 'pmid' or 'pmcid' if defined."
+            "Argument `idtype` must be either 'pmid' or 'pmcid' if defined."
+        assert versions in ("no", "yes"),\
+            "Argument `versions` must be either 'no' or 'yes'."
 
         if not self.email or any(_ not in self.email for _ in ("@", ".")):
             raise ValueError("Please provide a valid e-mail address to query the API.")
@@ -235,25 +239,36 @@ class PubMedAPI():
                 sleep(interval_on_error or 0)
             retries += 1
 
-    _scrape_date = staticmethod(souper(lambda soup:
-        soup.find("span", {"class": "cit"}).text.strip().split(":")[0].split(";")[0]))
+    @souper
+    def _scrape_date(soup):
+        return soup.find("span", {"class": "cit"}).text.strip().split(":")[0].split(";")[0]
 
-    _scrape_title = staticmethod(souper(lambda soup:
-        soup.find("h1", {"class": "heading-title"}).text.strip()))
+    @souper
+    def _scrape_title(soup):
+        return soup.find("h1", {"class": "heading-title"}).text.strip()
 
-    _scrape_abstract = staticmethod(souper(lambda soup:
-        soup.find("div", {"class": "abstract-content selected"}).find("p").text.strip()))
+    @souper
+    def _scrape_abstract(soup):
+        return soup.find("div", {"class": "abstract-content selected"}).find("p").text.strip()
 
-    _scrape_author_names = staticmethod(souper(lambda soup:
-        ";".join([a.text for a in
-        soup.find("div", {"class": "authors-list"}).find_all("a", {"class": "full-name"})])))
+    @souper
+    def _scrape_author_names(soup):
+        return ";".join([
+            a.text for a in
+            soup.find("div", {"class": "authors-list"}).find_all("a", {"class": "full-name"})]
+        )
 
-    _scrape_author_ids = staticmethod(souper(lambda soup:
-        ";".join([a["href"].split("author_id=")[-1] for a in
-        soup.find("div", {"class": "authors-list"}).find_all("a", {"class": "full-name"})])))
+    @souper
+    def _scrape_author_ids(soup):
+        return ";".join([
+            a["href"].split("author_id=")[-1] for a in
+            soup.find("div", {"class": "authors-list"}).find_all("a", {"class": "full-name"})
+        ])
 
-    _scrape_doi = staticmethod(souper(lambda soup:
-        soup.find("ul", {"class": "identifiers"}).find("a", {"class": "id-link"}).text.strip()))
+    @souper
+    def _scrape_doi(soup):
+        return soup.find("ul", {"class": "identifiers"}).find("a", {"class": "id-link"}).text.strip()
 
-    _scrape_pmid = staticmethod(souper(lambda soup:
-        soup.find("ul", {"class": "identifiers"}).find("strong").text.strip()))
+    @souper
+    def _scrape_pmid(soup):
+        return soup.find("ul", {"class": "identifiers"}).find("strong").text.strip()
