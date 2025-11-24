@@ -48,25 +48,6 @@ Quick example on how to obtain data from the API:
 
 For more information on the API, please check the [official documentation](https://www.ncbi.nlm.nih.gov/home/develop/api/).
 
-
-#### Obtain data from API
-
-By default, the returned data is a dictionary with the PMCID, the PMID, and the DOI of a paper:
-
-```python
->>> api(6798965)
-
-{
-  "pmcid": "PMC1163140",
-  "pmid": "6798965",
-  "doi": "10.1042/bj1970405"
-}
-```
-
-Either an integer (PMID), a string (PMID or PMCID), or a list is accepted as input when calling the class directly.
-
-**Note:** NCBI recommends that users post no more than three URL requests per second and limit large jobs to either weekends or between 9:00 PM and 5:00 AM Eastern time during weekdays. See more: [Usage Guidelines](https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen).
-
 #### Scrape data from website
 
 Scraping the PMID or PMICD instead returns more data (strings shortened for brevity):
@@ -87,7 +68,26 @@ Scraping the PMID or PMICD instead returns more data (strings shortened for brev
 }
 ```
 
-**Note**: some papers are unavailable from the API, but still return data when scraped, e.g., [PMID 15356126](https://pubmed.ncbi.nlm.nih.gov/15356126/).
+**Note**: some papers are unavailable from the API, but still return data when scraped, e.g., [PMID 15356126](https://pubmed.ncbi.nlm.nih.gov/15356126/). Please consider the [Usage Guidelines](https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen) from NCBI (see note below).
+
+#### Obtain data from API
+
+By default, the returned data is a dictionary with the PMCID, the PMID, and the DOI of a paper:
+
+```python
+>>> api(6798965, method="api")
+
+{
+  "pmcid": "PMC1163140",
+  "pmid": "6798965",
+  "doi": "10.1042/bj1970405"
+}
+```
+
+Either an integer (PMID), a string (PMID or PMCID), or a list is accepted as input when calling the class directly.
+
+**Note:** NCBI recommends that users post no more than three URL requests per second and limit large jobs to either weekends or between 9:00 PM and 5:00 AM Eastern time during weekdays. See more: [Usage Guidelines](https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen).
+
 
 #### Get paper references
 

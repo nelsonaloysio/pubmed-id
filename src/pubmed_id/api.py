@@ -1,23 +1,23 @@
 import logging as log
-from functools import partial, wraps
-from requests import Response, Session
+from functools import partial  # wraps
 from time import sleep
 from typing import Callable, Optional, Union
 
 from bs4 import BeautifulSoup
+from requests import Response, Session
 from tqdm.contrib.concurrent import process_map
 
 URL = "ncbi.nlm.nih.gov"
 API_ENDPOINT = "pmc/utils/idconv/v1.0"
 API_CITATIONS = "entrez/eutils/elink.fcgi?dbfrom=pubmed&linkname=pubmed_pubmed"
-METHODS = ["api", "citedin", "refs", "scrape"]
+METHODS = ["scrape", "api", "citedin", "refs"]
 
 
 def souper(func: Callable) -> Callable:
     """
     Decorator function to scrape data with BeautifulSoup.
     """
-    @wraps(func)
+    # @wraps(func)
     @staticmethod
     def func_wrapper(*args, **kwargs):
         try:
@@ -53,13 +53,20 @@ class PubMedAPI():
     def __call__(
         self,
         ids: Union[str, int, list],
-        method: str = "api",
+        method: str = METHODS[0],
         max_workers: Optional[int] = None,
         chunksize: Optional[int] = None,
         **kwargs
     ) -> list:
         """
-        Multiprocessing wrapper for the `api`, `citedin`, `refs`, and `scrape` methods.
+        Multiprocessing wrapper for methods:
+
+        - `scrape`: Scrape data from PubMed ID(s).
+        - `api`: Obtain data from PubMed ID(s) using the API.
+        - `citedin`: Obtain list of PubMed IDs that the given PubMed ID is cited in.
+        - `refs`: Obtain list of PubMed IDs that the given PubMed ID references.
+
+        Note that if `ids` is a string or integer, multiprocessing is not used.
 
         :param ids: List of PubMed IDs.
         :param method: Method to use to obtain data.
